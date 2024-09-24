@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorMiddleware = void 0;
 const zod_1 = require("zod");
 const response_error_1 = require("../errors/response.error");
+const jsonwebtoken_1 = require("jsonwebtoken");
 const errorMiddleware = (error, req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     if (error instanceof zod_1.ZodError) {
@@ -23,6 +24,11 @@ const errorMiddleware = (error, req, res, next) => __awaiter(void 0, void 0, voi
     else if (error instanceof response_error_1.ResponseError) {
         res.status(error.status).json({
             errors: error.message
+        });
+    }
+    else if (error instanceof jsonwebtoken_1.JsonWebTokenError || error instanceof jsonwebtoken_1.TokenExpiredError) {
+        res.status(401).json({
+            errors: "Token Invalid"
         });
     }
     else {

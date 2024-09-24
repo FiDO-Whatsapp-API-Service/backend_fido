@@ -37,7 +37,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteSession = void 0;
 exports.init = init;
-exports.logSessions = logSessions;
 exports.getSession = getSession;
 exports.loadSessions = loadSessions;
 exports.createSessionWhatsapp = createSessionWhatsapp;
@@ -57,17 +56,23 @@ function folderSession(sessionId) {
 }
 function init() {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
+        var _a, _b, _c, _d;
         if (!hasLoaded) {
             hasLoaded = true;
             try {
                 const devices = yield device_service_1.DeviceService.getAllConnected();
-                // loadSessions("admin")
-                const promises = devices.map(device => loadSessions(device.id.toString(), device.name, device.user_id));
+                if (devices.length === 0) {
+                    console.log('No WhatsApp devices found. Exiting...');
+                    for (const [key, value] of sessions.entries()) {
+                        console.log(`id: ${key} =>`, (_b = (_a = value.user) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : "undefined");
+                    }
+                    return;
+                }
+                const promises = devices.map(device => loadSessions(device.id.toString(), device.name, device.user_id, device.user.phone));
                 yield Promise.all(promises);
                 console.log('All WhatsApp sessions loaded successfully.\nSessions');
                 for (const [key, value] of sessions.entries()) {
-                    console.log(`id: ${key} =>`, (_b = (_a = value.user) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : "undefined");
+                    console.log(`id: ${key} =>`, (_d = (_c = value.user) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : "undefined");
                 }
             }
             catch (error) {
@@ -76,42 +81,40 @@ function init() {
         }
     });
 }
-function logSessions() {
-    console.log("Sessions: ", sessions.keys());
-    return { hasLoaded, sessions: sessions.keys() };
-}
 function getSession(sessionId) {
     var _a;
     return (_a = sessions.get(sessionId)) !== null && _a !== void 0 ? _a : null;
 }
-function loadSessions(sessionId, deviceName, user_id) {
+function loadSessions(sessionId, deviceName, userId, userPhone) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const folder = folderSession(sessionId); // Path ke folder sesi
             const { state, saveCreds } = yield (0, baileys_1.useMultiFileAuthState)(folder);
             const logger = (0, pino_1.default)({ level: 'silent' });
-            const store = (0, baileys_1.makeInMemoryStore)({ logger });
+            // const store = makeInMemoryStore({ logger });
             const sock = (0, baileys_1.default)({
                 auth: state,
                 printQRInTerminal: false,
                 logger,
             });
-            store.bind(sock.ev);
+            // store.bind(sock.ev);
             sock.ev.on('creds.update', saveCreds);
             yield new Promise((resolve, reject) => {
                 sock.ev.on('connection.update', (update) => {
                     var _a, _b;
                     const { connection, lastDisconnect } = update;
                     if (connection === 'open') {
-                        sessions.set(sessionId, Object.assign(Object.assign({}, sock), { store }));
+                        sessions.set(sessionId, Object.assign({}, sock));
                         resolve();
                     }
                     else if (connection === 'close') {
                         // Jika koneksi ditutup, mungkin karena error
                         const loggedOut = ((_b = (_a = lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error) === null || _a === void 0 ? void 0 : _a.output) === null || _b === void 0 ? void 0 : _b.statusCode) === baileys_1.DisconnectReason.loggedOut;
                         if (loggedOut) {
-                            disconnectSession(sessionId, deviceName, user_id);
                             reject(new Error('logout'));
+                        }
+                        else {
+                            loadSessions(sessionId, deviceName, userId, userPhone);
                         }
                     }
                 });
@@ -122,23 +125,23 @@ function loadSessions(sessionId, deviceName, user_id) {
             });
         }
         catch (error) {
-            disconnectSession(sessionId, deviceName, user_id);
+            disconnectSession(sessionId, deviceName, userId, userPhone);
             console.error(`Failed to load session for ${sessionId}:`, error);
         }
     });
 }
-function createSessionWhatsapp(sessionId, deviceName, user_id) {
+function createSessionWhatsapp(sessionId, deviceName, userId, userPhone) {
     return __awaiter(this, void 0, void 0, function* () {
         const folder = `sessions/${sessionId}_auth`;
         const { state, saveCreds } = yield (0, baileys_1.useMultiFileAuthState)(folder);
         const logger = (0, pino_1.default)({ level: 'warn' });
-        const store = (0, baileys_1.makeInMemoryStore)({ logger });
+        // const store = makeInMemoryStore({ logger });
         const sock = (0, baileys_1.default)({
             auth: state,
             printQRInTerminal: false,
             logger,
         });
-        store.bind(sock.ev);
+        // store.bind(sock.ev);
         sock.ev.on('creds.update', saveCreds);
         sock.ev.on('connection.update', (update) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d;
@@ -148,19 +151,17 @@ function createSessionWhatsapp(sessionId, deviceName, user_id) {
                 console.log('connection closed');
                 // reconnect if not logged out
                 if (shouldReconnect) {
-                    createSessionWhatsapp(sessionId, deviceName, user_id);
+                    createSessionWhatsapp(sessionId, deviceName, userId, userPhone);
                 }
                 else {
-                    disconnectSession(sessionId, deviceName, user_id);
+                    disconnectSession(sessionId, deviceName, userId, userPhone);
                 }
             }
             else if (connection === 'open') {
                 console.log('Sesions ID: ', sessionId, 'CONNECTED');
-                sessions.set(sessionId, sock);
+                sessions.set(sessionId, Object.assign({}, sock));
                 _1.io.emit("auth_wa", { status: "connected", sessionId });
-                if (sessionId !== "admin") {
-                    device_service_1.DeviceService.updateConnectionStatus(parseInt(sessionId), true, (_d = (_c = sock.user) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : "");
-                }
+                device_service_1.DeviceService.updateConnectionStatus(parseInt(sessionId), true, (_d = (_c = sock.user) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : "");
             }
             if (update.qr) {
                 try {
@@ -210,8 +211,14 @@ const deleteSession = (sessionId_1, ...args_1) => __awaiter(void 0, [sessionId_1
     }
 });
 exports.deleteSession = deleteSession;
-const disconnectSession = (sessionId, deviceName, user_id) => {
-    device_service_1.DeviceService.updateConnectionStatus(parseInt(sessionId), false);
-    notice_service_1.NoticeService.create(`Device "${deviceName}" Disconnected`, user_id.toString());
-    (0, exports.deleteSession)(sessionId, false);
+const disconnectSession = (sessionId, deviceName, user_id, userPhone) => {
+    var _a;
+    try {
+        device_service_1.DeviceService.updateConnectionStatus(parseInt(sessionId), false);
+        notice_service_1.NoticeService.create(`Device "${deviceName}" Disconnected`, user_id.toString());
+        (0, exports.deleteSession)(sessionId, false);
+    }
+    catch (e) {
+        console.error("ERROR REASONS WHEN DISCONNECT DEVICE: " + ((_a = e.message) !== null && _a !== void 0 ? _a : "No Message"));
+    }
 };

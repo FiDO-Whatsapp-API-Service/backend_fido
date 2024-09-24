@@ -9,3 +9,8 @@ MessageValidation.SEND = zod_1.z.object({
     message: zod_1.z.string(),
     phone: zod_1.z.string().min(1).max(20)
 });
+MessageValidation.SEND_WITH_TOKEN = zod_1.z.object({
+    token: zod_1.z.string(),
+    message: zod_1.z.string(),
+    phone: zod_1.z.string().min(1).max(20)
+});

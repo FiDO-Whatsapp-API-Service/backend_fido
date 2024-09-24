@@ -1,15 +1,15 @@
 import { UserResponse } from "./user.model";
 
-export type LoginUserResponse = {
+export type SessionResponse = {
     user: UserResponse;
     token: string;
 }
 export type LoginUserRequest = {
-    phone: string;
+    username: string;
     password: string;
 }
 
-export function toLoginResponse(user: UserResponse, token: string): LoginUserResponse {
+export function toSessionResponse(user: UserResponse, token: string): SessionResponse {
     return {
         user: {
             id: user.id,
@@ -17,6 +17,7 @@ export function toLoginResponse(user: UserResponse, token: string): LoginUserRes
             username: user.username,
             name: user.name,
             role: user.role,
+            email: user.email,
             isVerified: user.isVerified
         },
         token

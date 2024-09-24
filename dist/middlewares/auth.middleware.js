@@ -14,17 +14,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authMiddleware = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const response_error_1 = require("../errors/response.error");
 const authMiddleware = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const { authorization } = req.headers;
-    if (authorization && authorization.split(" ")[1]) {
-        const jwtDecode = jsonwebtoken_1.default.verify(authorization.split(" ")[1], process.env.JWT_SECRET);
-        req.user = jwtDecode;
-        next();
-        return;
+    if (authorization && authorization.startsWith('Bearer ')) {
+        const token = authorization.split(' ')[1]; // Mengambil token setelah 'Bearer '
+        try {
+            // Verifikasi token
+            const jwtDecode = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
+            req.user = jwtDecode;
+            next();
+            return;
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    res.status(401).json({
-        errors: "Unauthorized",
-        message: "need authorization"
-    });
+    else {
+        next(new response_error_1.ResponseError(401, 'Unauthorized'));
+    }
 });
 exports.authMiddleware = authMiddleware;

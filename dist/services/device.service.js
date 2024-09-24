@@ -23,7 +23,7 @@ class DeviceService {
     }
     static getAllConnected() {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield db_1.prisma.device.findMany({ where: { is_connected: true } });
+            return yield db_1.prisma.device.findMany({ where: { is_connected: true }, include: { user: true } });
         });
     }
     static create(req, user_id) {
@@ -31,7 +31,7 @@ class DeviceService {
             const registerRequest = validation_1.Validation.validate(device_validation_1.DeviceValidation.CREATE, req);
             try {
                 const device = yield db_1.prisma.device.create({
-                    data: { name: req.name, user_id }
+                    data: { name: registerRequest.name, user_id }
                 });
                 // GENERATE TOKEN
                 yield device_token_service_1.DeviceTokenService.createToken(device.id);

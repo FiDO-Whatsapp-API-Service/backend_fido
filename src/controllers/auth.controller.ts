@@ -21,7 +21,7 @@ export class AuthController {
     static async getSession(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const user = req.user
-            res.status(200).send({
+            return res.status(200).send({
                 errors: null,
                 message: "Get session user successfully",
                 data: user

@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { ResponseError } from "../errors/response.error";
+import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 
 export const errorMiddleware = async (error: Error, req: Request, res: Response, next: NextFunction) => {
     if (error instanceof ZodError) {
@@ -11,6 +12,10 @@ export const errorMiddleware = async (error: Error, req: Request, res: Response,
     } else if (error instanceof ResponseError) {
         res.status(error.status).json({
             errors: error.message
+        })
+    } else if (error instanceof JsonWebTokenError || error instanceof TokenExpiredError) {
+        res.status(401).json({
+            errors: "Token Invalid"
         })
     } else {
         res.status(500).json({

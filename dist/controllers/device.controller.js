@@ -35,7 +35,7 @@ class DeviceController {
                 const user = req.user;
                 const request = req.body;
                 const newDevice = yield device_service_1.DeviceService.create(request, user.id);
-                (0, waService_1.createSessionWhatsapp)(newDevice.id.toString(), newDevice.name, user.id);
+                (0, waService_1.createSessionWhatsapp)(newDevice.id.toString(), newDevice.name, user.id, user.phone);
                 return res.status(201).json({
                     data: newDevice
                 });
@@ -50,8 +50,9 @@ class DeviceController {
             try {
                 const { id } = req.params;
                 const device = yield device_service_1.DeviceService.getById(parseInt(id));
+                const user = req.user;
                 if (device) {
-                    (0, waService_1.createSessionWhatsapp)(id.toString(), device.name, device.user_id);
+                    (0, waService_1.createSessionWhatsapp)(id.toString(), device.name, device.user_id, user.phone);
                     res.status(201).json({
                         errors: null,
                         message: "Waiting authentication"

@@ -35,4 +35,5 @@ export class VerifyToken {
             throw new ResponseError(400, "wrong_otp")
         }
     }
+
 }

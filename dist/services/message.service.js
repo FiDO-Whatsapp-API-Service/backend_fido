@@ -14,6 +14,7 @@ const waService_1 = require("../app/waService");
 const response_error_1 = require("../errors/response.error");
 const message_validation_1 = require("../validations/message.validation");
 const validation_1 = require("../validations/validation");
+const device_token_service_1 = require("./device-token.service");
 class MessageService {
     static send(req, sessionId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -21,6 +22,21 @@ class MessageService {
             try {
                 const session = (0, waService_1.getSession)(sessionId);
                 return yield (0, waService_1.sendMessage)(session, reqValidated.phone, reqValidated.message);
+            }
+            catch (e) {
+                throw new response_error_1.ResponseError(400, "Session Id tidak ditemukan");
+            }
+        });
+    }
+    static sendWithToken(req) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { token, phone, message } = req;
+            const getDeviceid = yield device_token_service_1.DeviceTokenService.getDeviceIdByToken(token);
+            if (!getDeviceid)
+                throw new response_error_1.ResponseError(401, "Token Invalid");
+            try {
+                const session = (0, waService_1.getSession)(getDeviceid.toString());
+                return yield (0, waService_1.sendMessage)(session, phone, message);
             }
             catch (e) {
                 throw new response_error_1.ResponseError(400, "Session Id tidak ditemukan");

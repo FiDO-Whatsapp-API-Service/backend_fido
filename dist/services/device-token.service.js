@@ -18,7 +18,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const notice_service_1 = require("./notice.service");
 const device_service_1 = require("./device.service");
 class DeviceTokenService {
-    static getSessionId(token) {
+    static getDeviceIdByToken(token) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             return (_b = (_a = (yield db_1.prisma.deviceToken.findUnique({ where: { token } }))) === null || _a === void 0 ? void 0 : _a.device_id) !== null && _b !== void 0 ? _b : null;

@@ -33,7 +33,7 @@ npm run build
 ### Running App
 App hanya dapat berjalan ketika telah di-`build` maka dari itu lakukan Build App terlebih dahulu
 ```bash
-#setelah melakukan build
+# setelah melakukan build
 npm run start
 ```
 

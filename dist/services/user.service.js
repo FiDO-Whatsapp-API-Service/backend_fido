@@ -42,5 +42,60 @@ class UserService {
             return (0, user_model_1.toUserResponse)(user, verifyToken.is_verified);
         });
     }
+    static updateProfile(req, id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const request = validation_1.Validation.validate(user_validation_1.UserValidation.UPDATE, req);
+            try {
+                const user = yield db_1.prisma.user.update({
+                    where: { id },
+                    data: {
+                        name: request.name,
+                        email: request.email,
+                        username: request.username,
+                    }
+                });
+                return (0, user_model_1.toUserResponse)(user, true);
+            }
+            catch (e) {
+                throw new response_error_1.ResponseError(500, "Internal Server Error : " + e.message);
+            }
+        });
+    }
+    static updateRole(req) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const request = validation_1.Validation.validate(user_validation_1.UserValidation.SET_ROLE, req);
+            try {
+                const user = yield db_1.prisma.user.update({
+                    where: { id: request.id },
+                    data: { role: request.role }
+                });
+                return (0, user_model_1.toUserWithoutPassword)(user);
+            }
+            catch (e) {
+                throw new response_error_1.ResponseError(500, "Internal Server Error : " + e.message);
+            }
+        });
+    }
+    static generateAdmin() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const isExist = (yield db_1.prisma.user.findFirst({ where: { phone: "admin" } })) !== null;
+                if (!isExist) {
+                    yield db_1.prisma.user.create({
+                        data: {
+                            name: "Admin",
+                            phone: "admin",
+                            username: "admin",
+                            password: yield (0, bcrypt_1.hash)("admin", 10),
+                            role: "admin"
+                        }
+                    });
+                }
+            }
+            catch (e) {
+                console.log(e);
+            }
+        });
+    }
 }
 exports.UserService = UserService;

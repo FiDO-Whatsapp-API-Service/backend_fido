@@ -1,6 +1,6 @@
 import { toDataURL } from "qrcode"
 import pino from "pino"
-import makeWASocket, { useMultiFileAuthState as multiFileAuthState, DisconnectReason, makeInMemoryStore } from "@whiskeysockets/baileys"
+import makeWASocket, { useMultiFileAuthState as multiFileAuthState, DisconnectReason, makeInMemoryStore, WASocket } from "@whiskeysockets/baileys"
 import { Boom } from "@hapi/boom";
 import { rmSync } from "fs";
 import { DeviceService } from "../services/device.service"
@@ -8,7 +8,7 @@ import { io } from "./"
 import { NoticeService } from "../services/notice.service";
 const BASE_URL = process.env.BASE_URL
 let hasLoaded = false
-const sessions = new Map();
+const sessions = new Map<string, WASocket>();
 
 function folderSession(sessionId: string) {
     return `sessions/${sessionId}_auth`
@@ -19,8 +19,14 @@ export async function init() {
         hasLoaded = true
         try {
             const devices = await DeviceService.getAllConnected();
-            // loadSessions("admin")
-            const promises = devices.map(device => loadSessions(device.id.toString(), device.name, device.user_id));
+            if (devices.length === 0) {
+                console.log('No WhatsApp devices found. Exiting...');
+                for (const [key, value] of sessions.entries()) {
+                    console.log(`id: ${key} =>`, value.user?.id ?? "undefined");
+                }
+                return
+            }
+            const promises = devices.map(device => loadSessions(device.id.toString(), device.name, device.user_id, device.user.phone));
             await Promise.all(promises);
             console.log('All WhatsApp sessions loaded successfully.\nSessions');
             for (const [key, value] of sessions.entries()) {
@@ -32,25 +38,21 @@ export async function init() {
     }
 }
 
-export function logSessions() {
-    console.log("Sessions: ", sessions.keys());
-    return { hasLoaded, sessions: sessions.keys() };
-}
-export function getSession(sessionId: string) {
+export function getSession(sessionId: string): WASocket | null {
     return sessions.get(sessionId) ?? null;
 }
-export async function loadSessions(sessionId: string, deviceName: string, user_id: number) {
+export async function loadSessions(sessionId: string, deviceName: string, userId: number, userPhone: string) {
     try {
         const folder = folderSession(sessionId); // Path ke folder sesi
         const { state, saveCreds } = await multiFileAuthState(folder);
         const logger = pino({ level: 'silent' }) as any;
-        const store = makeInMemoryStore({ logger });
+        // const store = makeInMemoryStore({ logger });
         const sock = makeWASocket({
             auth: state,
             printQRInTerminal: false,
             logger,
         });
-        store.bind(sock.ev);
+        // store.bind(sock.ev);
 
         sock.ev.on('creds.update', saveCreds);
 
@@ -59,14 +61,15 @@ export async function loadSessions(sessionId: string, deviceName: string, user_i
                 const { connection, lastDisconnect } = update;
 
                 if (connection === 'open') {
-                    sessions.set(sessionId, { ...sock, store });
+                    sessions.set(sessionId, { ...sock });
                     resolve();
                 } else if (connection === 'close') {
                     // Jika koneksi ditutup, mungkin karena error
                     const loggedOut = (lastDisconnect?.error as Boom)?.output?.statusCode === DisconnectReason.loggedOut
                     if (loggedOut) {
-                        disconnectSession(sessionId, deviceName, user_id)
                         reject(new Error('logout'));
+                    } else {
+                        loadSessions(sessionId, deviceName, userId, userPhone)
                     }
                 }
             });
@@ -76,22 +79,22 @@ export async function loadSessions(sessionId: string, deviceName: string, user_i
             }, 10000);
         });
     } catch (error: any) {
-        disconnectSession(sessionId, deviceName, user_id)
+        disconnectSession(sessionId, deviceName, userId, userPhone)
         console.error(`Failed to load session for ${sessionId}:`, error);
     }
 }
 
-export async function createSessionWhatsapp(sessionId: string, deviceName: string, user_id: number) {
+export async function createSessionWhatsapp(sessionId: string, deviceName: string, userId: number, userPhone: string) {
     const folder = `sessions/${sessionId}_auth`
     const { state, saveCreds } = await multiFileAuthState(folder);
     const logger = pino({ level: 'warn' }) as any;
-    const store = makeInMemoryStore({ logger });
+    // const store = makeInMemoryStore({ logger });
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
         logger,
     });
-    store.bind(sock.ev);
+    // store.bind(sock.ev);
 
     sock.ev.on('creds.update', saveCreds)
     sock.ev.on('connection.update', async (update) => {
@@ -102,17 +105,15 @@ export async function createSessionWhatsapp(sessionId: string, deviceName: strin
             console.log('connection closed')
             // reconnect if not logged out
             if (shouldReconnect) {
-                createSessionWhatsapp(sessionId, deviceName, user_id)
+                createSessionWhatsapp(sessionId, deviceName, userId, userPhone)
             } else {
-                disconnectSession(sessionId, deviceName, user_id)
+                disconnectSession(sessionId, deviceName, userId, userPhone)
             }
         } else if (connection === 'open') {
             console.log('Sesions ID: ', sessionId, 'CONNECTED')
-            sessions.set(sessionId, sock)
+            sessions.set(sessionId, { ...sock })
             io.emit("auth_wa", { status: "connected", sessionId })
-            if (sessionId !== "admin") {
-                DeviceService.updateConnectionStatus(parseInt(sessionId), true, sock.user?.id ?? "")
-            }
+            DeviceService.updateConnectionStatus(parseInt(sessionId), true, sock.user?.id ?? "")
         }
 
         if (update.qr) {
@@ -139,7 +140,7 @@ function formatPhoneNumber(phone: string): string {
     }
 }
 
-export async function sendMessage(session: any, phone: string, message: string) {
+export async function sendMessage(session: WASocket, phone: string, message: string) {
     const jid = formatPhoneNumber(phone)
     await session.sendMessage(jid + "@s.whatsapp.net", { text: message + `\n\n> send form ${BASE_URL}` })
 }
@@ -157,8 +158,12 @@ export const deleteSession = async (sessionId: string, withLogout = true) => {
     }
 };
 
-const disconnectSession = (sessionId: string, deviceName: string, user_id: number) => {
-    DeviceService.updateConnectionStatus(parseInt(sessionId), false)
-    NoticeService.create(`Device "${deviceName}" Disconnected`, user_id.toString())
-    deleteSession(sessionId, false)
+const disconnectSession = (sessionId: string, deviceName: string, user_id: number, userPhone: string) => {
+    try {
+        DeviceService.updateConnectionStatus(parseInt(sessionId), false)
+        NoticeService.create(`Device "${deviceName}" Disconnected`, user_id.toString())
+        deleteSession(sessionId, false)
+    } catch (e: any) {
+        console.error("ERROR REASONS WHEN DISCONNECT DEVICE: " + (e.message ?? "No Message"))
+    }
 }

@@ -11,6 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessageController = void 0;
 const message_service_1 = require("../services/message.service");
+const validation_1 = require("../validations/validation");
+const message_validation_1 = require("../validations/message.validation");
 class MessageController {
     static sendMessage(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -21,6 +23,23 @@ class MessageController {
                 res.status(201).json({
                     errors: null,
                     message: "Send Message Succesfully",
+                    data: response
+                });
+            }
+            catch (e) {
+                next(e);
+            }
+        });
+    }
+    static sendMessageWithToken(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const request = validation_1.Validation.validate(message_validation_1.MessageValidation.SEND_WITH_TOKEN, req.body);
+                const response = yield message_service_1.MessageService.sendWithToken(request);
+                res.status(201).json({
+                    errors: null,
+                    message: `Send Message to ${request.phone} Succesfully`,
+                    send: request.message,
                     data: response
                 });
             }

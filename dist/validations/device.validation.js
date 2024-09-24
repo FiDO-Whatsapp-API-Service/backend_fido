@@ -8,3 +8,6 @@ exports.DeviceValidation = DeviceValidation;
 DeviceValidation.CREATE = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
 });
+DeviceValidation.MIDDLEWARE = zod_1.z.object({
+    token: zod_1.z.string()
+});

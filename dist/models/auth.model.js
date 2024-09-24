@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toLoginResponse = toLoginResponse;
-function toLoginResponse(user, token) {
+exports.toSessionResponse = toSessionResponse;
+function toSessionResponse(user, token) {
     return {
         user: {
             id: user.id,
@@ -9,6 +9,7 @@ function toLoginResponse(user, token) {
             username: user.username,
             name: user.name,
             role: user.role,
+            email: user.email,
             isVerified: user.isVerified
         },
         token

@@ -32,7 +32,7 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const user = req.user;
-                res.status(200).send({
+                return res.status(200).send({
                     errors: null,
                     message: "Get session user successfully",
                     data: user

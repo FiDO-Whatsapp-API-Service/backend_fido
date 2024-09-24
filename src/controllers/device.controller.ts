@@ -23,7 +23,7 @@ export class DeviceController {
             const user = req.user!
             const request = req.body as CreateDeviceRequest
             const newDevice = await DeviceService.create(request, user.id)
-            createSessionWhatsapp(newDevice.id.toString(), newDevice.name, user.id)
+            createSessionWhatsapp(newDevice.id.toString(), newDevice.name, user.id, user.phone)
             return res.status(201).json({
                 data: newDevice
             })
@@ -36,8 +36,9 @@ export class DeviceController {
         try {
             const { id } = req.params
             const device = await DeviceService.getById(parseInt(id))
+            const user = req.user!
             if (device) {
-                createSessionWhatsapp(id.toString(), device.name, device.user_id)
+                createSessionWhatsapp(id.toString(), device.name, device.user_id, user.phone)
                 res.status(201).json({
                     errors: null,
                     message: "Waiting authentication"

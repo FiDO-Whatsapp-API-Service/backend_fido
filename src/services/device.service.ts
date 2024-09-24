@@ -4,21 +4,21 @@ import { deleteSession } from "../app/waService";
 import { Device } from "@prisma/client";
 import { Validation } from "../validations/validation";
 import { DeviceValidation } from "../validations/device.validation";
-import { CreateDeviceRequest } from "../models/device.model";
+import { CreateDeviceRequest, DeviceWithUser } from "../models/device.model";
 
 export class DeviceService {
     static async getAll(): Promise<Device[]> {
         return await prisma.device.findMany()
     }
-    static async getAllConnected(): Promise<Device[]> {
-        return await prisma.device.findMany({ where: { is_connected: true } })
+    static async getAllConnected(): Promise<DeviceWithUser[]> {
+        return await prisma.device.findMany({ where: { is_connected: true }, include: { user: true } })
     }
 
     static async create(req: CreateDeviceRequest, user_id: number): Promise<Device> {
-        const registerRequest = Validation.validate(DeviceValidation.CREATE, req)
+        const registerRequest = Validation.validate(DeviceValidation.CREATE, req) as CreateDeviceRequest
         try {
             const device = await prisma.device.create({
-                data: { name: req.name, user_id }
+                data: { name: registerRequest.name, user_id }
             })
             // GENERATE TOKEN
             await DeviceTokenService.createToken(device.id)

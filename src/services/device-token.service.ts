@@ -5,7 +5,7 @@ import { NoticeService } from "./notice.service";
 import { DeviceService } from "./device.service";
 
 export class DeviceTokenService {
-    static async getSessionId(token: string): Promise<number | null> {
+    static async getDeviceIdByToken(token: string): Promise<number | null> {
         return (await prisma.deviceToken.findUnique({ where: { token } }))?.device_id ?? null
     }
 

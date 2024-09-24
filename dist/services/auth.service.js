@@ -26,12 +26,22 @@ class AuthService {
     static login(req) {
         return __awaiter(this, void 0, void 0, function* () {
             const loginReq = validation_1.Validation.validate(user_validation_1.UserValidation.LOGIN, req);
-            const user = yield db_1.prisma.user.findUnique({ where: { phone: loginReq.phone } });
+            const user = yield db_1.prisma.user.findFirst({
+                where: {
+                    OR: [{ username: loginReq.username }, { phone: loginReq.username }]
+                }
+            });
             if (user && (yield (0, bcrypt_1.compare)(loginReq.password, user.password))) {
-                const verifyToken = yield verify_token_service_1.VerifyToken.getCodeByUserId(user.id);
-                const userResponse = (0, user_model_1.toUserResponse)(user, verifyToken.is_verified);
-                const token = jsonwebtoken_1.default.sign(Object.assign(Object.assign({}, userResponse), { isVerified: verifyToken.is_verified }), process.env.JWT_SECRET);
-                return (0, auth_model_1.toLoginResponse)(userResponse, token);
+                let isVerified = false;
+                if (user.phone === "admin") {
+                    isVerified = true;
+                }
+                else {
+                    const verifyToken = yield verify_token_service_1.VerifyToken.getCodeByUserId(user.id);
+                    isVerified = verifyToken.is_verified;
+                }
+                const userResponse = (0, user_model_1.toUserResponse)(user, isVerified);
+                return this.generateSession(userResponse);
             }
             throw new response_error_1.ResponseError(400, "wrong_credentials");
         });
@@ -39,7 +49,11 @@ class AuthService {
     static updateVerified(user) {
         const verifiedUser = Object.assign(Object.assign({}, user), { isVerified: true });
         const token = jsonwebtoken_1.default.sign(verifiedUser, process.env.JWT_SECRET);
-        return (0, auth_model_1.toLoginResponse)(verifiedUser, token);
+        return (0, auth_model_1.toSessionResponse)(verifiedUser, token);
+    }
+    static generateSession(user) {
+        const token = jsonwebtoken_1.default.sign(user, process.env.JWT_SECRET, { expiresIn: "1h" });
+        return (0, auth_model_1.toSessionResponse)(user, token);
     }
 }
 exports.AuthService = AuthService;
